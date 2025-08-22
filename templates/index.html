@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NavPro - Navigation Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient 3s ease infinite;
+            margin-bottom: 0.5rem;
+        }
+
+        @keyframes gradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.8;
+            font-weight: 300;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 1.5rem;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #videoElement {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .camera-icon {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff6b6b;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #4ecdc4;
+        }
+
+        .status-dot.running {
+            background: #45b7d1;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .ready-message {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1.25rem;
+            color: #ffffff;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 100px;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            border-color: transparent;
+        }
+
+        .btn.primary:hover {
+            background: linear-gradient(135deg, #3db8a8, #3a8f7a);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            border-color: transparent;
+        }
+
+        .btn.danger:hover {
+            background: linear-gradient(135deg, #ff5252, #e04747);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .captions {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 1rem;
+            padding: 1rem;
+            min-height: 80px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .captions-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+
+        .captions-content {
+            font-size: 0.95rem;
+            line-height: 1.4;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        .captions-content.urgent {
+            color: #ff6b6b;
+            font-weight: 600;
+            animation: urgentPulse 1s infinite;
+        }
+
+        .captions-content.important {
+            color: #ffd93d;
+            font-weight: 500;
+        }
+
+        .captions-content.clear {
+            color: #4ecdc4;
+        }
+
+        @keyframes urgentPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .motion-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .motion-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4ecdc4;
+        }
+
+        .motion-indicator.still {
+            background: #ff6b6b;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: rgba(78, 205, 196, 0.2);
+            color: #4ecdc4;
+            border-color: #4ecdc4;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+            border-color: #ff6b6b;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 1.5rem;
+                margin: 0.5rem;
+            }
+            
+            .logo {
+                font-size: 2rem;
+            }
+            
+            .camera-container {
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">
+        Connecting...
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo">NavPro</div>
+            <div class="subtitle">AI-Powered Navigation Assistant</div>
+        </div>
+
+        <div class="camera-container">
+            <video id="videoElement" autoplay muted playsinline></video>
+            <div class="camera-overlay" id="cameraOverlay">
+                <svg class="camera-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 15.2c1.78 0 3.2-1.42 3.2-3.2s-1.42-3.2-3.2-3.2S8.8 10.22 8.8 12s1.42 3.2 3.2 3.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                </svg>
+                <div>Camera Loading...</div>
+            </div>
+            
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+
+        <div class="ready-message" id="readyMessage">
+            Ready to Assist - Connect and Start Navigation
+        </div>
+
+        <div class="controls">
+            <button class="btn primary" id="startBtn">
+                <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                Start Navigation
+            </button>
+            
+            <button class="btn danger" id="stopBtn" disabled>
+                <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 6h12v12H6z"/>
+                </svg>
+                Stop Navigation
+            </button>
+        </div>
+
+        <div class="captions">
+            <div class="captions-header">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2 17h20v2H2zm1.15-4.05L4 11l.85 1.95L6.8 13l-1.95.85L4 15.8l-.85-1.95L1.2 13l1.95-.85zm6.7-6.7L10.7 8.2 9.85 6.25 8 7.1l.85-1.95L10.8 4.3 9.85 2.35 8 3.2l1.95-.85L8.2 1.4l1.95.85L8.2 1.4z"/>
+                </svg>
+                Live Captions
+            </div>
+            <div class="captions-content" id="captionsContent">
+                Waiting for navigation guidance...
+            </div>
+            <div class="motion-status" id="motionStatus">
+                <div class="motion-indicator" id="motionIndicator"></div>
+                <span id="motionText">Stationary</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class NavProApp {
+            constructor() {
+                this.socket = null;
+                this.stream = null;
+                this.isNavigationActive = false;
+                this.frameInterval = null;
+                
+                this.initializeElements();
+                this.initializeSocket();
+                this.initializeCamera();
+                this.setupEventListeners();
+            }
+
+            initializeElements() {
+                this.elements = {
+                    startBtn: document.getElementById('startBtn'),
+                    stopBtn: document.getElementById('stopBtn'),
+                    videoElement: document.getElementById('videoElement'),
+                    cameraOverlay: document.getElementById('cameraOverlay'),
+                    connectionStatus: document.getElementById('connectionStatus'),
+                    statusDot: document.getElementById('statusDot'),
+                    statusText: document.getElementById('statusText'),
+                    readyMessage: document.getElementById('readyMessage'),
+                    captionsContent: document.getElementById('captionsContent'),
+                    motionStatus: document.getElementById('motionStatus'),
+                    motionIndicator: document.getElementById('motionIndicator'),
+                    motionText: document.getElementById('motionText')
+                };
+            }
+
+            initializeSocket() {
+                this.socket = io();
+
+                this.socket.on('connect', () => {
+                    console.log('Connected to NavPro backend');
+                    this.updateConnectionStatus('connected');
+                    this.elements.readyMessage.textContent = 'Connected - Ready to Start Navigation';
+                });
+
+                this.socket.on('disconnect', () => {
+                    console.log('Disconnected from backend');
+                    this.updateConnectionStatus('disconnected');
+                    this.elements.readyMessage.textContent = 'Disconnected - Attempting to Reconnect...';
+                });
+
+                this.socket.on('status', (data) => {
+                    console.log('Status update:', data.message);
+                    this.elements.readyMessage.textContent = data.message;
+                });
+
+                this.socket.on('navigation_update', (data) => {
+                    this.handleNavigationUpdate(data);
+                });
+
+                this.socket.on('frame_result', (data) => {
+                    this.handleFrameResult(data);
+                });
+            }
+
+            async initializeCamera() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            width: 640, 
+                            height: 480,
+                            frameRate: 20,
+                            facingMode: 'environment' // Use back camera
+                        }
+                    });
+                    
+                    this.elements.videoElement.srcObject = this.stream;
+                    this.elements.cameraOverlay.style.display = 'none';
+                    
+                    console.log('Camera initialized successfully');
+                } catch (error) {
+                    console.error('Error accessing camera:', error);
+                    this.elements.cameraOverlay.innerHTML = `
+                        <svg class="camera-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M2 4.27L3.28 3L21 20.73L19.73 22l-2.49-2.49C16.68 19.81 16.1 20 15.5 20H4.5C3.11 20 2 18.89 2 17.5v-11L2 4.27zM4 6.83L15.17 18H4.5c-.28 0-.5-.22-.5-.5v-10.67zM22 17.5c0 .28-.22.5-.5.5h-1L18 15.5V7c0-.55-.45-1-1-1H9l-2-2h6L15 6h3.5C19.89 6 21 7.11 21 8.5v9z"/>
+                        </svg>
+                        <div>Camera Access Denied</div>
+                    `;
+                }
+            }
+
+            setupEventListeners() {
+                this.elements.startBtn.addEventListener('click', () => this.startNavigation());
+                this.elements.stopBtn.addEventListener('click', () => this.stopNavigation());
+            }
+
+            startNavigation() {
+                if (!this.stream) {
+                    alert('Camera not available. Please refresh and allow camera access.');
+                    return;
+                }
+
+                this.isNavigationActive = true;
+                this.elements.startBtn.disabled = true;
+                this.elements.stopBtn.disabled = false;
+                
+                this.elements.statusDot.classList.add('running');
+                this.elements.statusText.textContent = 'Running';
+                this.elements.captionsContent.textContent = 'Navigation started. Processing camera feed...';
+
+                this.socket.emit('start_navigation');
+                
+                // Start sending frames to backend
+                this.frameInterval = setInterval(() => {
+                    this.sendFrame();
+                }, 500); // Send frame every 500ms (2 FPS)
+            }
+
+            stopNavigation() {
+                this.isNavigationActive = false;
+                this.elements.startBtn.disabled = false;
+                this.elements.stopBtn.disabled = true;
+                
+                this.elements.statusDot.classList.remove('running');
+                this.elements.statusText.textContent = 'Ready';
+                this.elements.captionsContent.textContent = 'Navigation stopped.';
+                this.elements.captionsContent.className = 'captions-content';
+
+                if (this.frameInterval) {
+                    clearInterval(this.frameInterval);
+                    this.frameInterval = null;
+                }
+
+                this.socket.emit('stop_navigation');
+            }
+
+            sendFrame() {
+                if (!this.isNavigationActive || !this.stream) return;
+
+                const canvas = document.createElement('canvas');
+                const video = this.elements.videoElement;
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                const frameData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                this.socket.emit('process_frame', { frame: frameData });
+            }
+
+            handleNavigationUpdate(data) {
+                this.elements.captionsContent.textContent = data.message;
+                
+                // Apply styling based on priority
+                this.elements.captionsContent.className = `captions-content ${data.priority}`;
+                
+                // Update motion status
+                this.updateMotionStatus(data.is_moving, data.stationary_time);
+                
+                console.log('Navigation update:', data);
+            }
+
+            handleFrameResult(data) {
+                if (data.status === 'processed' || data.status === 'skipped') {
+                    this.updateMotionStatus(data.is_moving, data.stationary_time);
+                } else if (data.status === 'error') {
+                    console.error('Frame processing error:', data.message);
+                }
+            }
+
+            updateMotionStatus(isMoving, stationaryTime) {
+                if (isMoving) {
+                    this.elements.motionIndicator.classList.remove('still');
+                    this.elements.motionText.textContent = 'Moving';
+                } else {
+                    this.elements.motionIndicator.classList.add('still');
+                    const timeStr = stationaryTime ? `${stationaryTime.toFixed(1)}s` : '0.0s';
+                    this.elements.motionText.textContent = `Still (${timeStr})`;
+                }
+            }
+
+            updateConnectionStatus(status) {
+                this.elements.connectionStatus.className = `connection-status ${status}`;
+                this.elements.connectionStatus.textContent = status === 'connected' ? 'Connected' : 'Disconnected';
+                
+                if (status === 'connected') {
+                    this.elements.statusDot.classList.add('connected');
+                } else {
+                    this.elements.statusDot.classList.remove('connected', 'running');
+                }
+            }
+        }
+
+        // Initialize the application when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new NavProApp();
+        });
+    </script>
+</body>
+</html>
