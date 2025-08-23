@@ -140,7 +140,7 @@
 
         .controls {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 1rem;
             margin-bottom: 1.5rem;
         }
@@ -196,18 +196,37 @@
             background: linear-gradient(135deg, #ff5252, #e04747);
         }
 
+        .btn.ocr {
+            background: linear-gradient(135deg, #ffa726, #fb8c00);
+            border-color: transparent;
+        }
+
+        .btn.ocr:hover {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
         }
 
+        .btn.processing {
+            animation: processing 1s infinite;
+        }
+
+        @keyframes processing {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
         .captions {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 1rem;
             padding: 1rem;
-            min-height: 80px;
+            min-height: 120px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1rem;
         }
 
         .captions-header {
@@ -223,12 +242,14 @@
         .captions-content {
             font-size: 0.95rem;
             line-height: 1.4;
-            min-height: 50px;
+            min-height: 70px;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             opacity: 0.9;
+            max-height: 120px;
+            overflow-y: auto;
         }
 
         .captions-content.urgent {
@@ -244,6 +265,13 @@
 
         .captions-content.clear {
             color: #4ecdc4;
+        }
+
+        .captions-content.ocr-result {
+            color: #ffa726;
+            text-align: left;
+            justify-content: flex-start;
+            align-items: flex-start;
         }
 
         @keyframes urgentPulse {
@@ -298,6 +326,45 @@
             border-color: #ff6b6b;
         }
 
+        .ocr-info {
+            background: rgba(255, 167, 38, 0.1);
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 167, 38, 0.3);
+        }
+
+        .ocr-info-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #ffa726;
+        }
+
+        .ocr-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .ocr-stat {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .ocr-stat-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #ffa726;
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 1.5rem;
@@ -310,6 +377,21 @@
             
             .camera-container {
                 height: 200px;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+                gap: 0.8rem;
+            }
+
+            .btn {
+                min-height: 80px;
+                font-size: 0.8rem;
+            }
+
+            .btn-icon {
+                width: 28px;
+                height: 28px;
             }
         }
     </style>
@@ -358,6 +440,13 @@
                 </svg>
                 Stop Navigation
             </button>
+
+            <button class="btn ocr" id="ocrBtn">
+                <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                </svg>
+                Read Text
+            </button>
         </div>
 
         <div class="captions">
@@ -365,7 +454,7 @@
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M2 17h20v2H2zm1.15-4.05L4 11l.85 1.95L6.8 13l-1.95.85L4 15.8l-.85-1.95L1.2 13l1.95-.85zm6.7-6.7L10.7 8.2 9.85 6.25 8 7.1l.85-1.95L10.8 4.3 9.85 2.35 8 3.2l1.95-.85L8.2 1.4l1.95.85L8.2 1.4z"/>
                 </svg>
-                Live Captions
+                <span id="captionsMode">Navigation Guidance</span>
             </div>
             <div class="captions-content" id="captionsContent">
                 Waiting for navigation guidance...
@@ -373,6 +462,25 @@
             <div class="motion-status" id="motionStatus">
                 <div class="motion-indicator" id="motionIndicator"></div>
                 <span id="motionText">Stationary</span>
+            </div>
+        </div>
+
+        <div class="ocr-info" id="ocrInfo" style="display: none;">
+            <div class="ocr-info-header">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                </svg>
+                OCR Results
+            </div>
+            <div class="ocr-stats">
+                <div class="ocr-stat">
+                    <div class="ocr-stat-value" id="ocrConfidence">0%</div>
+                    <div>Confidence</div>
+                </div>
+                <div class="ocr-stat">
+                    <div class="ocr-stat-value" id="ocrWordCount">0</div>
+                    <div>Words</div>
+                </div>
             </div>
         </div>
     </div>
@@ -384,6 +492,7 @@
                 this.stream = null;
                 this.isNavigationActive = false;
                 this.frameInterval = null;
+                this.isOcrProcessing = false;
                 
                 this.initializeElements();
                 this.initializeSocket();
@@ -395,6 +504,7 @@
                 this.elements = {
                     startBtn: document.getElementById('startBtn'),
                     stopBtn: document.getElementById('stopBtn'),
+                    ocrBtn: document.getElementById('ocrBtn'),
                     videoElement: document.getElementById('videoElement'),
                     cameraOverlay: document.getElementById('cameraOverlay'),
                     connectionStatus: document.getElementById('connectionStatus'),
@@ -402,9 +512,13 @@
                     statusText: document.getElementById('statusText'),
                     readyMessage: document.getElementById('readyMessage'),
                     captionsContent: document.getElementById('captionsContent'),
+                    captionsMode: document.getElementById('captionsMode'),
                     motionStatus: document.getElementById('motionStatus'),
                     motionIndicator: document.getElementById('motionIndicator'),
-                    motionText: document.getElementById('motionText')
+                    motionText: document.getElementById('motionText'),
+                    ocrInfo: document.getElementById('ocrInfo'),
+                    ocrConfidence: document.getElementById('ocrConfidence'),
+                    ocrWordCount: document.getElementById('ocrWordCount')
                 };
             }
 
@@ -435,6 +549,10 @@
                 this.socket.on('frame_result', (data) => {
                     this.handleFrameResult(data);
                 });
+
+                this.socket.on('ocr_result', (data) => {
+                    this.handleOcrResult(data);
+                });
             }
 
             async initializeCamera() {
@@ -444,7 +562,7 @@
                             width: 640, 
                             height: 480,
                             frameRate: 20,
-                            facingMode: 'environment' // Use back camera
+                            facingMode: 'environment'
                         }
                     });
                     
@@ -466,6 +584,7 @@
             setupEventListeners() {
                 this.elements.startBtn.addEventListener('click', () => this.startNavigation());
                 this.elements.stopBtn.addEventListener('click', () => this.stopNavigation());
+                this.elements.ocrBtn.addEventListener('click', () => this.performOcr());
             }
 
             startNavigation() {
@@ -480,7 +599,10 @@
                 
                 this.elements.statusDot.classList.add('running');
                 this.elements.statusText.textContent = 'Running';
+                this.elements.captionsMode.textContent = 'Navigation Guidance';
                 this.elements.captionsContent.textContent = 'Navigation started. Processing camera feed...';
+                this.elements.captionsContent.className = 'captions-content';
+                this.elements.ocrInfo.style.display = 'none';
 
                 this.socket.emit('start_navigation');
                 
@@ -497,6 +619,7 @@
                 
                 this.elements.statusDot.classList.remove('running');
                 this.elements.statusText.textContent = 'Ready';
+                this.elements.captionsMode.textContent = 'Navigation Guidance';
                 this.elements.captionsContent.textContent = 'Navigation stopped.';
                 this.elements.captionsContent.className = 'captions-content';
 
@@ -506,6 +629,40 @@
                 }
 
                 this.socket.emit('stop_navigation');
+            }
+
+            performOcr() {
+                if (!this.stream) {
+                    alert('Camera not available. Please refresh and allow camera access.');
+                    return;
+                }
+
+                if (this.isOcrProcessing) {
+                    return; // Prevent multiple OCR requests
+                }
+
+                this.isOcrProcessing = true;
+                this.elements.ocrBtn.disabled = true;
+                this.elements.ocrBtn.classList.add('processing');
+                
+                this.elements.captionsMode.textContent = 'OCR Text Reading';
+                this.elements.captionsContent.textContent = 'Processing image for text reading...';
+                this.elements.captionsContent.className = 'captions-content ocr-result';
+
+                // Capture current frame
+                const canvas = document.createElement('canvas');
+                const video = this.elements.videoElement;
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                const frameData = canvas.toDataURL('image/jpeg', 0.9);
+                
+                // Send to OCR processing
+                this.socket.emit('ocr_capture', { frame: frameData });
             }
 
             sendFrame() {
@@ -526,6 +683,7 @@
             }
 
             handleNavigationUpdate(data) {
+                this.elements.captionsMode.textContent = 'Navigation Guidance';
                 this.elements.captionsContent.textContent = data.message;
                 
                 // Apply styling based on priority
@@ -543,6 +701,68 @@
                 } else if (data.status === 'error') {
                     console.error('Frame processing error:', data.message);
                 }
+            }
+
+            handleOcrResult(data) {
+                this.isOcrProcessing = false;
+                this.elements.ocrBtn.disabled = false;
+                this.elements.ocrBtn.classList.remove('processing');
+
+                if (data.status === 'success') {
+                    // Show OCR results
+                    this.elements.captionsMode.textContent = 'OCR Text Reading - Success';
+                    this.elements.captionsContent.textContent = data.text || 'Text extracted (check audio for details)';
+                    this.elements.captionsContent.className = 'captions-content ocr-result';
+
+                    // Show OCR info panel
+                    this.elements.ocrInfo.style.display = 'block';
+                    this.elements.ocrConfidence.textContent = `${Math.round(data.confidence)}%`;
+                    
+                    const wordCount = data.text ? data.text.split(/\s+/).length : 0;
+                    this.elements.ocrWordCount.textContent = wordCount;
+
+                    // Log structured data if available
+                    if (data.structured_data) {
+                        console.log('OCR Structured Data:', data.structured_data);
+                        
+                        if (data.structured_data.phones.length > 0) {
+                            console.log('Phone numbers found:', data.structured_data.phones);
+                        }
+                        if (data.structured_data.emails.length > 0) {
+                            console.log('Email addresses found:', data.structured_data.emails);
+                        }
+                        if (data.structured_data.prices.length > 0) {
+                            console.log('Prices found:', data.structured_data.prices);
+                        }
+                    }
+
+                } else if (data.status === 'no_text') {
+                    this.elements.captionsMode.textContent = 'OCR Text Reading - No Text';
+                    this.elements.captionsContent.textContent = 'No text could be detected in the image. Try pointing the camera at text or documents.';
+                    this.elements.captionsContent.className = 'captions-content';
+                    this.elements.ocrInfo.style.display = 'none';
+
+                } else {
+                    // Error occurred
+                    this.elements.captionsMode.textContent = 'OCR Text Reading - Error';
+                    this.elements.captionsContent.textContent = `OCR failed: ${data.message || 'Unknown error occurred'}`;
+                    this.elements.captionsContent.className = 'captions-content';
+                    this.elements.ocrInfo.style.display = 'none';
+                }
+
+                // Auto-hide OCR results after 10 seconds if navigation is active
+                if (this.isNavigationActive) {
+                    setTimeout(() => {
+                        if (!this.isOcrProcessing) {
+                            this.elements.captionsMode.textContent = 'Navigation Guidance';
+                            this.elements.captionsContent.textContent = 'Waiting for navigation guidance...';
+                            this.elements.captionsContent.className = 'captions-content';
+                            this.elements.ocrInfo.style.display = 'none';
+                        }
+                    }, 10000);
+                }
+
+                console.log('OCR result:', data);
             }
 
             updateMotionStatus(isMoving, stationaryTime) {
