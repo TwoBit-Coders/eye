@@ -1,188 +1,124 @@
-from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO, emit
-import cv2
-import numpy as np
+# app.py (Final version, 100% compatible with index.html)
+
 import base64
-from PIL import Image
 import io
 import logging
+import cv2
+import numpy as np
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, emit
+from PIL import Image
 
+# This will import the corrected version of your assistant class
 from autonavigation import AutoNavigationAssistant
-from OCR import OCRProcessor
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# --- Basic Logging Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- Flask & SocketIO Setup ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+app.config['SECRET_KEY'] = 'your_secret_key_here!' 
+socketio = SocketIO(app, async_mode='eventlet')
 
-# Initialize components
-nav_assistant = AutoNavigationAssistant()
-ocr_processor = OCRProcessor()
+# --- Global AI Instance ---
+assistant = None
+try:
+    logger.info("Initializing AutoNavigationAssistant...")
+    assistant = AutoNavigationAssistant()
+    logger.info("AutoNavigationAssistant initialized successfully.")
+except Exception as e:
+    logger.critical(f"FATAL: Could not initialize AutoNavigationAssistant. Server cannot start. Error: {e}")
 
-def decode_frame_data(frame_data):
-    """Decode base64 image data to OpenCV frame"""
-    try:
-        # Decode base64 image
-        image_data = base64.b64decode(frame_data.split(',')[1])
-        image = Image.open(io.BytesIO(image_data))
-        frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        return frame
-    except Exception as e:
-        logger.error(f"Error decoding frame data: {e}")
-        return None
-
+# --- Route to Serve Frontend ---
 @app.route('/')
 def index():
-    """Serve the main page"""
     return render_template('index.html')
 
-@app.route('/health')
-def health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'device': str(nav_assistant.device),
-        'navigation_running': nav_assistant.running,
-        'connected_clients': len(nav_assistant.connected_clients)
-    })
+# --- SocketIO Event Handlers ---
 
-# SocketIO event handlers
 @socketio.on('connect')
 def handle_connect():
-    """Handle client connection"""
-    nav_assistant.connected_clients.add(request.sid)
+    if not assistant:
+        emit('status', {'message': 'Server error: AI module failed to initialize.'})
+        return
     logger.info(f"Client connected: {request.sid}")
-    emit('status', {'message': 'Connected to NavPro backend'})
+    emit('status', {'message': 'System ready. You can start navigation.'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Handle client disconnection"""
-    nav_assistant.connected_clients.discard(request.sid)
-    logger.info(f"Client disconnected: {request.sid}")
+    if assistant and assistant.running:
+        assistant.stop()
+    logger.info(f"Client disconnected: {request.sid}. Navigation automatically stopped.")
+
+def base64_to_cv2_image(base64_string):
+    if ',' in base64_string:
+        base64_string = base64_string.split(',')[1]
+    img_bytes = base64.b64decode(base64_string)
+    pil_image = Image.open(io.BytesIO(img_bytes))
+    frame_rgb = np.array(pil_image)
+    return cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+
+# --- Navigation Handlers ---
 
 @socketio.on('start_navigation')
-def handle_start_navigation():
-    """Start navigation assistance"""
-    nav_assistant.running = True
-    nav_assistant.speak_async("Navigation assistant ready. Start moving for guidance.")
-    logger.info("Navigation started")
-    emit('status', {'message': 'Navigation started'})
+def handle_start():
+    if not assistant: return
+    assistant.start()
+    logger.info("Navigation started by client.")
+    emit('status', {'message': 'Navigation started.'})
 
-@socketio.on('stop_navigation')  
-def handle_stop_navigation():
-    """Stop navigation assistance"""
-    nav_assistant.running = False
-    nav_assistant.speak_async("Navigation assistant stopped. Stay safe!")
-    logger.info("Navigation stopped")
-    emit('status', {'message': 'Navigation stopped'})
+@socketio.on('stop_navigation')
+def handle_stop():
+    if not assistant: return
+    assistant.stop()
+    logger.info("Navigation stopped by client.")
+    emit('status', {'message': 'Navigation stopped.'})
 
 @socketio.on('process_frame')
 def handle_frame(data):
-    """Process incoming video frame for navigation"""
-    if nav_assistant.running:
-        frame = decode_frame_data(data['frame'])
-        if frame is not None:
-            result = nav_assistant.process_frame_for_navigation(frame)
-            
-            # Emit navigation update if there's an announcement
-            if result.get('status') == 'processed' and 'message' in result:
-                socketio.emit('navigation_update', {
-                    'type': 'navigation_update',
-                    'priority': result['priority'],
-                    'message': result['message'],
-                    'is_moving': result['is_moving'],
-                    'stationary_time': result['stationary_time'],
-                    'urgent_warnings': result.get('urgent_warnings', []),
-                    'important_obstacles': result.get('important_obstacles', []),
-                    'general_info': result.get('general_info', [])
-                })
-            
-            emit('frame_result', result)
-        else:
-            emit('frame_result', {'status': 'decode_error'})
-    else:
-        emit('frame_result', {'status': 'navigation_stopped'})
+    """
+    Handles incoming video frames. This function now sends the
+    full data payload required by the frontend.
+    """
+    if not assistant or not assistant.running: return
 
-@socketio.on('ocr_capture')
-def handle_ocr_capture(data):
-    """Process frame for OCR text extraction"""
     try:
-        logger.info("OCR capture request received")
+        frame_bgr = base64_to_cv2_image(data['frame'])
+        result_dict = assistant.process_frame_for_navigation(frame_bgr)
         
-        frame = decode_frame_data(data['frame'])
-        if frame is not None:
-            # Process frame with OCR
-            result = ocr_processor.process_frame_for_ocr(frame)
-            
-            # Generate speech text if successful
-            if result['status'] == 'success':
-                speech_text = ocr_processor.speak_ocr_result(
-                    result['text'], 
-                    result.get('structured_data')
-                )
-                
-                # Speak the result
-                nav_assistant.speak_async(speech_text, priority="urgent")
-                
-                logger.info(f"OCR successful: {len(result['text'])} characters extracted")
-            else:
-                # Speak error message
-                error_message = result.get('message', 'Could not read text from image')
-                nav_assistant.speak_async(f"OCR failed: {error_message}")
-                logger.warning(f"OCR failed: {result.get('message', 'Unknown error')}")
-            
-            # Emit result to client
-            emit('ocr_result', result)
-            
-        else:
-            error_result = {
-                'status': 'error',
-                'message': 'Failed to decode image data',
-                'text': '',
-                'confidence': 0
+        if not result_dict: return
+
+        # --- THIS IS THE CORRECTED LOGIC ---
+        
+        # If there is a new announcement, send the full 'navigation_update' event
+        if result_dict.get('status') == 'processed' and result_dict.get('message'):
+            payload = {
+                'message': result_dict.get('message'),
+                'priority': result_dict.get('priority', 'normal'), # Default to 'normal' if not present
+                'is_moving': result_dict.get('is_moving', False),
+                'stationary_time': result_dict.get('stationary_time', 0)
             }
-            nav_assistant.speak_async("Failed to process image for text reading")
-            emit('ocr_result', error_result)
-            
+            emit('navigation_update', payload)
+        
+        # Otherwise, send a 'frame_result' to keep the motion status updated
+        else:
+            payload = {
+                'status': result_dict.get('status'),
+                'is_moving': result_dict.get('is_moving', False),
+                'stationary_time': result_dict.get('stationary_time', 0)
+            }
+            emit('frame_result', payload)
+
     except Exception as e:
-        logger.error(f"Error in OCR processing: {e}")
-        error_result = {
-            'status': 'error',
-            'message': str(e),
-            'text': '',
-            'confidence': 0
-        }
-        nav_assistant.speak_async("Error occurred during text reading")
-        emit('ocr_result', error_result)
+        logger.error(f"Critical error in handle_frame for client {request.sid}: {e}", exc_info=True)
+        emit('status', {'message': 'An error occurred on the server.'})
 
-@socketio.on('force_scan')
-def handle_force_scan():
-    """Force immediate navigation scan"""
-    nav_assistant.last_scan_time = 0
-    emit('status', {'message': 'Navigation scan forced'})
 
-@socketio.on('test_tts')
-def handle_test_tts(data):
-    """Test text-to-speech functionality"""
-    message = data.get('message', 'Testing text to speech')
-    nav_assistant.speak_async(message)
-    emit('status', {'message': f'TTS test: "{message}"'})
-
+# --- Main Execution ---
 if __name__ == '__main__':
-    logger.info("🚀 Starting NavPro Flask-SocketIO server...")
-    logger.info("📱 Open your browser to http://localhost:5000")
-    logger.info("📋 Features available:")
-    logger.info("   - 🧭 AI Navigation Assistant")
-    logger.info("   - 🔍 OCR Text Reading")
-    logger.info("   - 🗣️ Text-to-Speech")
-    logger.info("   - 📱 Real-time Video Processing")
-    
-    try:
-        socketio.run(app, debug=True, host='0.0.0.0', port=5000)
-    except KeyboardInterrupt:
-        logger.info("Server stopped by user")
-    except Exception as e:
-        logger.error(f"Server error: {e}")
+    if assistant:
+        logger.info("Starting Flask-SocketIO server on http://127.0.0.1:5000")
+        socketio.run(app, host='127.0.0.1', port=5000, debug=True)
+    else:
+        logger.critical("AutoNavigationAssistant module failed to initialize. Server will not run.")

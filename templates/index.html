@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NavPro - Navigation Assistant</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -397,63 +400,33 @@
     </style>
 </head>
 <body>
-    <div class="connection-status" id="connectionStatus">
-        Connecting...
-    </div>
-
+    <div class="connection-status" id="connectionStatus">Connecting...</div>
     <div class="container">
         <div class="header">
             <div class="logo">NavPro</div>
             <div class="subtitle">AI-Powered Navigation Assistant</div>
         </div>
-
         <div class="camera-container">
             <video id="videoElement" autoplay muted playsinline></video>
             <div class="camera-overlay" id="cameraOverlay">
-                <svg class="camera-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 15.2c1.78 0 3.2-1.42 3.2-3.2s-1.42-3.2-3.2-3.2S8.8 10.22 8.8 12s1.42 3.2 3.2 3.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                </svg>
+                <!-- Camera Icon SVG -->
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 15.2c1.78 0 3.2-1.42 3.2-3.2s-1.42-3.2-3.2-3.2S8.8 10.22 8.8 12s1.42 3.2 3.2 3.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
                 <div>Camera Loading...</div>
             </div>
-            
             <div class="status-indicator">
                 <div class="status-dot" id="statusDot"></div>
                 <span id="statusText">Ready</span>
             </div>
         </div>
-
-        <div class="ready-message" id="readyMessage">
-            Ready to Assist - Connect and Start Navigation
-        </div>
-
+        <div class="ready-message" id="readyMessage">Connecting to server...</div>
         <div class="controls">
-            <button class="btn primary" id="startBtn">
-                <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                </svg>
-                Start Navigation
-            </button>
-            
-            <button class="btn danger" id="stopBtn" disabled>
-                <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 6h12v12H6z"/>
-                </svg>
-                Stop Navigation
-            </button>
-
-            <button class="btn ocr" id="ocrBtn">
-                <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
-                </svg>
-                Read Text
-            </button>
+            <button id="startBtn">Start Navigation</button>
+            <button id="stopBtn" disabled>Stop Navigation</button>
+            <button id="ocrBtn">Read Text</button>
         </div>
-
         <div class="captions">
             <div class="captions-header">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M2 17h20v2H2zm1.15-4.05L4 11l.85 1.95L6.8 13l-1.95.85L4 15.8l-.85-1.95L1.2 13l1.95-.85zm6.7-6.7L10.7 8.2 9.85 6.25 8 7.1l.85-1.95L10.8 4.3 9.85 2.35 8 3.2l1.95-.85L8.2 1.4l1.95.85L8.2 1.4z"/>
-                </svg>
+                <!-- Captions Icon SVG -->
                 <span id="captionsMode">Navigation Guidance</span>
             </div>
             <div class="captions-content" id="captionsContent">
@@ -462,25 +435,6 @@
             <div class="motion-status" id="motionStatus">
                 <div class="motion-indicator" id="motionIndicator"></div>
                 <span id="motionText">Stationary</span>
-            </div>
-        </div>
-
-        <div class="ocr-info" id="ocrInfo" style="display: none;">
-            <div class="ocr-info-header">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                </svg>
-                OCR Results
-            </div>
-            <div class="ocr-stats">
-                <div class="ocr-stat">
-                    <div class="ocr-stat-value" id="ocrConfidence">0%</div>
-                    <div>Confidence</div>
-                </div>
-                <div class="ocr-stat">
-                    <div class="ocr-stat-value" id="ocrWordCount">0</div>
-                    <div>Words</div>
-                </div>
             </div>
         </div>
     </div>
@@ -492,7 +446,8 @@
                 this.stream = null;
                 this.isNavigationActive = false;
                 this.frameInterval = null;
-                this.isOcrProcessing = false;
+                // Get the browser's speech synthesis engine
+                this.speechSynth = window.speechSynthesis;
                 
                 this.initializeElements();
                 this.initializeSocket();
@@ -500,11 +455,32 @@
                 this.setupEventListeners();
             }
 
+            // This new function handles all audio output in the browser
+            speak(text, priority = 'normal') {
+                if (!text || !this.speechSynth) {
+                    console.warn("Speech synthesis not available or no text provided.");
+                    return;
+                }
+
+                // For urgent messages, stop any current speech immediately.
+                if (priority === 'urgent' && this.speechSynth.speaking) {
+                    this.speechSynth.cancel();
+                }
+                
+                // To prevent a long queue of non-urgent messages, don't speak if already speaking.
+                if (this.speechSynth.speaking && priority !== 'urgent') {
+                    return; 
+                }
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 4.5; // A comfortable, slightly faster speech rate
+                this.speechSynth.speak(utterance);
+            }
+
             initializeElements() {
                 this.elements = {
                     startBtn: document.getElementById('startBtn'),
                     stopBtn: document.getElementById('stopBtn'),
-                    ocrBtn: document.getElementById('ocrBtn'),
                     videoElement: document.getElementById('videoElement'),
                     cameraOverlay: document.getElementById('cameraOverlay'),
                     connectionStatus: document.getElementById('connectionStatus'),
@@ -512,187 +488,98 @@
                     statusText: document.getElementById('statusText'),
                     readyMessage: document.getElementById('readyMessage'),
                     captionsContent: document.getElementById('captionsContent'),
-                    captionsMode: document.getElementById('captionsMode'),
-                    motionStatus: document.getElementById('motionStatus'),
-                    motionIndicator: document.getElementById('motionIndicator'),
                     motionText: document.getElementById('motionText'),
-                    ocrInfo: document.getElementById('ocrInfo'),
-                    ocrConfidence: document.getElementById('ocrConfidence'),
-                    ocrWordCount: document.getElementById('ocrWordCount')
+                    motionIndicator: document.getElementById('motionIndicator')
                 };
             }
 
             initializeSocket() {
                 this.socket = io();
 
-                this.socket.on('connect', () => {
-                    console.log('Connected to NavPro backend');
-                    this.updateConnectionStatus('connected');
-                    this.elements.readyMessage.textContent = 'Connected - Ready to Start Navigation';
-                });
-
+                this.socket.on('connect', () => this.updateConnectionStatus('connected'));
                 this.socket.on('disconnect', () => {
-                    console.log('Disconnected from backend');
                     this.updateConnectionStatus('disconnected');
-                    this.elements.readyMessage.textContent = 'Disconnected - Attempting to Reconnect...';
+                    if (this.isNavigationActive) this.stopNavigation();
                 });
 
+                // This handler now also speaks the status message
                 this.socket.on('status', (data) => {
                     console.log('Status update:', data.message);
                     this.elements.readyMessage.textContent = data.message;
+                    this.speak(data.message);
                 });
 
+                // This handler now also speaks the navigation guidance
                 this.socket.on('navigation_update', (data) => {
                     this.handleNavigationUpdate(data);
                 });
 
-                this.socket.on('frame_result', (data) => {
-                    this.handleFrameResult(data);
-                });
-
-                this.socket.on('ocr_result', (data) => {
-                    this.handleOcrResult(data);
-                });
+                this.socket.on('frame_result', (data) => this.handleFrameResult(data));
             }
 
             async initializeCamera() {
                 try {
                     this.stream = await navigator.mediaDevices.getUserMedia({
-                        video: { 
-                            width: 640, 
-                            height: 480,
-                            frameRate: 20,
-                            facingMode: 'environment'
-                        }
+                        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: { ideal: 'environment' } }
                     });
-                    
                     this.elements.videoElement.srcObject = this.stream;
                     this.elements.cameraOverlay.style.display = 'none';
-                    
-                    console.log('Camera initialized successfully');
                 } catch (error) {
                     console.error('Error accessing camera:', error);
-                    this.elements.cameraOverlay.innerHTML = `
-                        <svg class="camera-icon" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M2 4.27L3.28 3L21 20.73L19.73 22l-2.49-2.49C16.68 19.81 16.1 20 15.5 20H4.5C3.11 20 2 18.89 2 17.5v-11L2 4.27zM4 6.83L15.17 18H4.5c-.28 0-.5-.22-.5-.5v-10.67zM22 17.5c0 .28-.22.5-.5.5h-1L18 15.5V7c0-.55-.45-1-1-1H9l-2-2h6L15 6h3.5C19.89 6 21 7.11 21 8.5v9z"/>
-                        </svg>
-                        <div>Camera Access Denied</div>
-                    `;
+                    this.elements.cameraOverlay.innerHTML = `<div>Camera Access Denied</div>`;
                 }
             }
 
             setupEventListeners() {
                 this.elements.startBtn.addEventListener('click', () => this.startNavigation());
                 this.elements.stopBtn.addEventListener('click', () => this.stopNavigation());
-                this.elements.ocrBtn.addEventListener('click', () => this.performOcr());
             }
 
             startNavigation() {
-                if (!this.stream) {
-                    alert('Camera not available. Please refresh and allow camera access.');
-                    return;
-                }
-
+                if (!this.stream) { alert('Camera not available.'); return; }
                 this.isNavigationActive = true;
                 this.elements.startBtn.disabled = true;
                 this.elements.stopBtn.disabled = false;
-                
                 this.elements.statusDot.classList.add('running');
                 this.elements.statusText.textContent = 'Running';
-                this.elements.captionsMode.textContent = 'Navigation Guidance';
-                this.elements.captionsContent.textContent = 'Navigation started. Processing camera feed...';
-                this.elements.captionsContent.className = 'captions-content';
-                this.elements.ocrInfo.style.display = 'none';
-
                 this.socket.emit('start_navigation');
-                
-                // Start sending frames to backend
-                this.frameInterval = setInterval(() => {
-                    this.sendFrame();
-                }, 500); // Send frame every 500ms (2 FPS)
+                this.frameInterval = setInterval(() => { this.sendFrame(); }, 500); // 2 FPS
             }
 
             stopNavigation() {
                 this.isNavigationActive = false;
                 this.elements.startBtn.disabled = false;
                 this.elements.stopBtn.disabled = true;
-                
                 this.elements.statusDot.classList.remove('running');
                 this.elements.statusText.textContent = 'Ready';
-                this.elements.captionsMode.textContent = 'Navigation Guidance';
-                this.elements.captionsContent.textContent = 'Navigation stopped.';
-                this.elements.captionsContent.className = 'captions-content';
-
                 if (this.frameInterval) {
                     clearInterval(this.frameInterval);
                     this.frameInterval = null;
                 }
-
                 this.socket.emit('stop_navigation');
-            }
-
-            performOcr() {
-                if (!this.stream) {
-                    alert('Camera not available. Please refresh and allow camera access.');
-                    return;
-                }
-
-                if (this.isOcrProcessing) {
-                    return; // Prevent multiple OCR requests
-                }
-
-                this.isOcrProcessing = true;
-                this.elements.ocrBtn.disabled = true;
-                this.elements.ocrBtn.classList.add('processing');
-                
-                this.elements.captionsMode.textContent = 'OCR Text Reading';
-                this.elements.captionsContent.textContent = 'Processing image for text reading...';
-                this.elements.captionsContent.className = 'captions-content ocr-result';
-
-                // Capture current frame
-                const canvas = document.createElement('canvas');
-                const video = this.elements.videoElement;
-                
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0);
-                
-                const frameData = canvas.toDataURL('image/jpeg', 0.9);
-                
-                // Send to OCR processing
-                this.socket.emit('ocr_capture', { frame: frameData });
             }
 
             sendFrame() {
                 if (!this.isNavigationActive || !this.stream) return;
-
                 const canvas = document.createElement('canvas');
                 const video = this.elements.videoElement;
-                
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0);
-                
+                canvas.getContext('2d').drawImage(video, 0, 0);
                 const frameData = canvas.toDataURL('image/jpeg', 0.8);
-                
                 this.socket.emit('process_frame', { frame: frameData });
             }
 
+            // This function is the core of the synchronized output
             handleNavigationUpdate(data) {
-                this.elements.captionsMode.textContent = 'Navigation Guidance';
+                // 1. Display the caption on screen
                 this.elements.captionsContent.textContent = data.message;
-                
-                // Apply styling based on priority
                 this.elements.captionsContent.className = `captions-content ${data.priority}`;
-                
-                // Update motion status
+
+                // 2. Speak the exact same caption aloud
+                this.speak(data.message, data.priority);
+
                 this.updateMotionStatus(data.is_moving, data.stationary_time);
-                
-                console.log('Navigation update:', data);
             }
 
             handleFrameResult(data) {
@@ -703,95 +590,26 @@
                 }
             }
 
-            handleOcrResult(data) {
-                this.isOcrProcessing = false;
-                this.elements.ocrBtn.disabled = false;
-                this.elements.ocrBtn.classList.remove('processing');
-
-                if (data.status === 'success') {
-                    // Show OCR results
-                    this.elements.captionsMode.textContent = 'OCR Text Reading - Success';
-                    this.elements.captionsContent.textContent = data.text || 'Text extracted (check audio for details)';
-                    this.elements.captionsContent.className = 'captions-content ocr-result';
-
-                    // Show OCR info panel
-                    this.elements.ocrInfo.style.display = 'block';
-                    this.elements.ocrConfidence.textContent = `${Math.round(data.confidence)}%`;
-                    
-                    const wordCount = data.text ? data.text.split(/\s+/).length : 0;
-                    this.elements.ocrWordCount.textContent = wordCount;
-
-                    // Log structured data if available
-                    if (data.structured_data) {
-                        console.log('OCR Structured Data:', data.structured_data);
-                        
-                        if (data.structured_data.phones.length > 0) {
-                            console.log('Phone numbers found:', data.structured_data.phones);
-                        }
-                        if (data.structured_data.emails.length > 0) {
-                            console.log('Email addresses found:', data.structured_data.emails);
-                        }
-                        if (data.structured_data.prices.length > 0) {
-                            console.log('Prices found:', data.structured_data.prices);
-                        }
-                    }
-
-                } else if (data.status === 'no_text') {
-                    this.elements.captionsMode.textContent = 'OCR Text Reading - No Text';
-                    this.elements.captionsContent.textContent = 'No text could be detected in the image. Try pointing the camera at text or documents.';
-                    this.elements.captionsContent.className = 'captions-content';
-                    this.elements.ocrInfo.style.display = 'none';
-
-                } else {
-                    // Error occurred
-                    this.elements.captionsMode.textContent = 'OCR Text Reading - Error';
-                    this.elements.captionsContent.textContent = `OCR failed: ${data.message || 'Unknown error occurred'}`;
-                    this.elements.captionsContent.className = 'captions-content';
-                    this.elements.ocrInfo.style.display = 'none';
-                }
-
-                // Auto-hide OCR results after 10 seconds if navigation is active
-                if (this.isNavigationActive) {
-                    setTimeout(() => {
-                        if (!this.isOcrProcessing) {
-                            this.elements.captionsMode.textContent = 'Navigation Guidance';
-                            this.elements.captionsContent.textContent = 'Waiting for navigation guidance...';
-                            this.elements.captionsContent.className = 'captions-content';
-                            this.elements.ocrInfo.style.display = 'none';
-                        }
-                    }, 10000);
-                }
-
-                console.log('OCR result:', data);
-            }
-
             updateMotionStatus(isMoving, stationaryTime) {
                 if (isMoving) {
                     this.elements.motionIndicator.classList.remove('still');
                     this.elements.motionText.textContent = 'Moving';
                 } else {
                     this.elements.motionIndicator.classList.add('still');
-                    const timeStr = stationaryTime ? `${stationaryTime.toFixed(1)}s` : '0.0s';
-                    this.elements.motionText.textContent = `Still (${timeStr})`;
+                    this.elements.motionText.textContent = `Still (${stationaryTime.toFixed(1)}s)`;
                 }
             }
-
+            
             updateConnectionStatus(status) {
+                const isConnected = status === 'connected';
                 this.elements.connectionStatus.className = `connection-status ${status}`;
-                this.elements.connectionStatus.textContent = status === 'connected' ? 'Connected' : 'Disconnected';
-                
-                if (status === 'connected') {
-                    this.elements.statusDot.classList.add('connected');
-                } else {
-                    this.elements.statusDot.classList.remove('connected', 'running');
-                }
+                this.elements.connectionStatus.textContent = isConnected ? 'Connected' : 'Disconnected';
+                this.elements.statusDot.classList.toggle('connected', isConnected);
+                if (!isConnected) this.elements.statusDot.classList.remove('running');
             }
         }
-
-        // Initialize the application when the DOM is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            new NavProApp();
-        });
+        
+        document.addEventListener('DOMContentLoaded', () => { new NavProApp(); });
     </script>
 </body>
 </html>
