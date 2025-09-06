@@ -1,4 +1,3 @@
-# app.py (Final version, 100% compatible with index.html)
 
 import base64
 import io

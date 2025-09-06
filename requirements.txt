@@ -10,3 +10,4 @@ ultralytics==8.0.196
 timm==0.9.7
 python-socketio==5.9.0
 eventlet==0.33.3
+pytesseract pillow
