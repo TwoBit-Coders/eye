@@ -223,6 +223,11 @@
             50% { opacity: 0.6; }
         }
 
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .captions {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 1rem;
@@ -423,6 +428,7 @@
             <button id="startBtn">Start Navigation</button>
             <button id="stopBtn" disabled>Stop Navigation</button>
             <button id="ocrBtn">Read Text</button>
+            <button id="desBtn">Describe scene</button>
         </div>
         <div class="captions">
             <div class="captions-header">
@@ -462,18 +468,17 @@
                     return;
                 }
 
-                // For urgent messages, stop any current speech immediately.
-                if (priority === 'urgent' && this.speechSynth.speaking) {
-                    this.speechSynth.cancel();
-                }
-                
-                // To prevent a long queue of non-urgent messages, don't speak if already speaking.
-                if (this.speechSynth.speaking && priority !== 'urgent') {
-                    return; 
-                }
+                // ALWAYS cancel any ongoing or queued speech. This ensures the
+                // newest, most important message is always the one that is spoken.
+                // This is the critical fix for your bug.
+                this.speechSynth.cancel();
 
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 4.5; // A comfortable, slightly faster speech rate
+
+                // CHANGED: 4.5 is too fast to be understood. 1.2 is a clear, fast pace.
+                // Experiment with values between 1.0 (normal) and 1.5.
+                utterance.rate = 4.5;
+                
                 this.speechSynth.speak(utterance);
             }
 
@@ -488,6 +493,7 @@
                     statusText: document.getElementById('statusText'),
                     readyMessage: document.getElementById('readyMessage'),
                     captionsContent: document.getElementById('captionsContent'),
+                    desBtn: document.getElementById('desBtn'),
                     motionText: document.getElementById('motionText'),
                     motionIndicator: document.getElementById('motionIndicator')
                 };
@@ -515,6 +521,57 @@
                 });
 
                 this.socket.on('frame_result', (data) => this.handleFrameResult(data));
+                this.socket.on('scene_description_response', (data) => {
+                    this.handleSceneDescriptionResponse(data);
+                });
+                // Add timeout handling for scene description
+                this.sceneDescriptionTimeout = null;
+            }
+
+            // This is the complete, polished handler function.
+
+            handleSceneDescriptionResponse(data) {
+                console.log("✅ Response received from server:", data);
+
+                // 1. CRITICAL: Always cancel the timeout timer first.
+                // This prevents the "taking too long" message from appearing after we've received a response.
+                clearTimeout(this.sceneDescriptionTimeout);
+
+                try {
+                    // 2. Handle the different types of responses from the server.
+                    if (data && data.description) {
+                        // --- SUCCESS CASE ---
+                        // The server sent a valid description.
+                        this.elements.captionsContent.textContent = data.description;
+                        this.speak(data.description); // Speak the successful result
+
+                    } else if (data && data.error) {
+                        // --- SERVER-SIDE ERROR CASE ---
+                        // The server handled the request but sent back a specific error message.
+                        const errorMessage = `Error: ${data.error}`;
+                        this.elements.captionsContent.textContent = errorMessage;
+                        this.speak(errorMessage, 'urgent');
+
+                    } else {
+                        // --- UNEXPECTED/GENERIC ERROR CASE ---
+                        // The server responded, but the data is not in the format we expect.
+                        this.elements.captionsContent.textContent = "Received an invalid response from the server. Please try again.";
+                        this.speak("Received an invalid response from the server.", 'urgent');
+                    }
+
+                } catch (error) {
+                    // This is a safety net for any unexpected errors within this function itself.
+                    console.error("Error processing server response:", error);
+                    this.elements.captionsContent.textContent = "A client-side error occurred. Please check the console.";
+                
+                } finally {
+                    // 3. ALWAYS reset the button state, no matter what happened.
+                    // The 'finally' block ensures this code runs after the 'try' block,
+                    // whether there was a success or an error. This prevents a stuck UI.
+                    this.elements.desBtn.disabled = false;
+                    this.elements.desBtn.classList.remove('processing');
+                    this.elements.desBtn.textContent = 'Describe scene';
+                }
             }
 
             async initializeCamera() {
@@ -533,6 +590,7 @@
             setupEventListeners() {
                 this.elements.startBtn.addEventListener('click', () => this.startNavigation());
                 this.elements.stopBtn.addEventListener('click', () => this.stopNavigation());
+                this.elements.desBtn.addEventListener('click', () => this.requestSceneDescription());
             }
 
             startNavigation() {
@@ -570,6 +628,18 @@
                 this.socket.emit('process_frame', { frame: frameData });
             }
 
+
+            captureFrame(quality = 0.8) {
+                if (!this.stream) return null;
+                const canvas = document.createElement('canvas');
+                const video = this.elements.videoElement;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                return canvas.toDataURL('image/jpeg', quality);
+            }
+
+
             // This function is the core of the synchronized output
             handleNavigationUpdate(data) {
                 // 1. Display the caption on screen
@@ -580,6 +650,58 @@
                 this.speak(data.message, data.priority);
 
                 this.updateMotionStatus(data.is_moving, data.stationary_time);
+            }
+
+            // Replace your old requestSceneDescription function with this corrected version.
+            requestSceneDescription() {
+                console.log("🎬 Starting scene description request...");
+                
+                const frameData = this.captureFrame(0.9); // Higher quality for description
+                if (!frameData) {
+                    console.log("❌ No frame data captured");
+                    this.speak("Camera not available to describe scene.", 'urgent');
+                    return;
+                }
+                
+                console.log(`📊 Frame data captured, length: ${frameData.length}`);
+                
+                // Add loading state to button
+                this.elements.desBtn.disabled = true;
+                this.elements.desBtn.classList.add('processing');
+                this.elements.desBtn.textContent = 'Analyzing...';
+                
+                // <<< BUG FIX: The line below was causing the error and has been removed. >>>
+                // this.elements.captionsMode.textContent = "Scene Description"; 
+                
+                // Update UI with loading animation
+                this.elements.captionsContent.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                        <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid #4ecdc4; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                        <div>AI is analyzing the scene...</div>
+                        <div style="font-size: 0.8rem; opacity: 0.7;">This may take a few seconds</div>
+                    </div>
+                `;
+                this.elements.captionsContent.className = "captions-content";
+                
+                this.speak("Describing scene.");
+                
+                console.log("📡 Sending request to server...");
+                // Now this line will be reached and the request will be sent.
+                this.socket.emit('request_scene_description', { frame: frameData });
+                console.log("✅ Request sent to server");
+                
+                // Set timeout for scene description (15 seconds - increased for reliability)
+                this.sceneDescriptionTimeout = setTimeout(() => {
+                    console.log("⏰ Scene description timeout reached");
+                    this.elements.captionsContent.textContent = "Analysis is taking longer than expected. Please try again.";
+                    this.elements.captionsContent.className = "captions-content";
+                    this.speak("Analysis is taking longer than expected. Please try again.", 'urgent');
+                    
+                    // Reset button state
+                    this.elements.desBtn.disabled = false;
+                    this.elements.desBtn.classList.remove('processing');
+                    this.elements.desBtn.textContent = 'Describe scene';
+                }, 15000);
             }
 
             handleFrameResult(data) {
