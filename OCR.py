@@ -1,7 +1,11 @@
-kk = "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"
+import os 
+from dotenv import load_dotenv
 import easyocr
 from langchain_groq import ChatGroq
 from langchain.schema import SystemMessage, HumanMessage
+load.env()
+
+kk = os.getenv("GGROQ_API_KEY")
 
 # 1. Init OCR
 reader = easyocr.Reader(['en','hi'])
