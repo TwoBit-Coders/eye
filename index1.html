@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NavPro - Navigation Assistant</title>
+    <link rel="stylesheet" 
+     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=mic" />
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+   
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">Connecting...</div>
+    <div class="container">
+        <div class="header">
+            <div class="logo" style="color:white">NavPro</div>
+            <div class="subtitle">AI-Powered Navigation Assistant</div>
+        </div>
+        <div class="camera-container">
+            <video id="videoElement" autoplay muted playsinline></video>
+            <div class="camera-overlay" id="cameraOverlay">
+                <!-- Camera Icon SVG -->
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 15.2c1.78 0 3.2-1.42 3.2-3.2s-1.42-3.2-3.2-3.2S8.8 10.22 8.8 12s1.42 3.2 3.2 3.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+                <div>Camera Loading...</div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+        <div class="ready-message" id="readyMessage">Connecting to server...</div>
+        <div class="controls">
+            <span class="material-symbols-outlined" style="font-size:2rem;" >mic</span>
+        </div>
+        <div class="captions">
+            <div class="captions-header">
+                <!-- Captions Icon SVG -->
+                <span id="captionsMode">Navigation Guidance</span>
+            </div>
+            <div class="captions-content" id="captionsContent">
+                Waiting for navigation guidance...
+            </div>
+            <div class="motion-status" id="motionStatus">
+                <div class="motion-indicator" id="motionIndicator"></div>
+                <span id="motionText">Stationary</span>
+            </div>
+        </div>
+    </div>
+     <script src="app.js"></script>
+     <button id="actionBtn">Start/Stop</button>
+<p id="description">Click the button to start.</p>
+
+<script>
+    let clickCount = 0;
+    let intervalId = null;
+
+    const button = document.getElementById('actionBtn');
+    const description = document.getElementById('description');
+
+    button.addEventListener('click', () => {
+        clickCount++;
+
+        if (clickCount === 1) {
+            // Start the action
+            description.textContent = "Action started!";
+            intervalId = setInterval(() => {
+                console.log("Running ...");
+            }, 1000);
+        } else if (clickCount === 2) {
+            // Stop the action
+            clearInterval(intervalId);
+            description.textContent = "Action stopped!";
+            clickCount = 0; // Reset for future clicks
+        }
+    });
+</script>
+ 
+</body>
+</html>
